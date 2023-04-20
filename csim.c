@@ -72,14 +72,12 @@ void init_cache(cache *c,int num_sets,int associativity,int block_size) {
 // Checks that place in the cache and tallies hits, misses, and evictions
 void access_cache(cache *c, char type, unsigned long long address, int size) {
     //Gets the seperate bit sections from the address
-    //printf("test\n");
-    printf("\n");
-    //printf("\n\nAddress: %llx ", address);
-
-    int set_index = fmod((address / c->block_size), c->num_sets);
+    int set_index = address << 27;
+    set_index = (int)((unsigned int)set_index >> 30);
 
     //printf("Set index: %i\n", set_index);
     int tag = address / (c->block_size * c->num_sets);
+    //printf("set: %x, tag: %x\t", set_index, tag);
 
     //printf("Tag: %i\n", tag);
     //printf("Type: %c\n", type);
@@ -98,10 +96,10 @@ void access_cache(cache *c, char type, unsigned long long address, int size) {
                 ////printf("cas 3\n");
                 if(block->valid){
                     hits++;
-                   printf("hit");
+                  //printf("hit\n");
                 } else {
                     misses++;
-                   printf("miss");
+                   //printf("miss\n");
                     block->valid = 1;
                 }
                 return;
@@ -113,59 +111,72 @@ void access_cache(cache *c, char type, unsigned long long address, int size) {
                     //printf("cas 0\n");
                     hits++;
                     hits++;
-                    printf("hit hit");
+                   //printf("hit hit\n");
                     //memcpy(block->data, &type, size);
+                    return;
+
                 }
                 //If modifying empty value, misses, writes, hits
                 else {
                     //printf("cas 1\n");
                     misses++;
-                    printf("miss hit");
+                   //printf("miss hit\n");
                     //memcpy(block->data, &type, size);
                     block->valid = 1;
                     hits++;
+                    return;
                 }
             }
             //If storing
             else {
                 //printf("cas4\n");
                 hits++;
-                printf("hit");
+               //printf("hit\n");
                 //memcpy(block->data, &type, size);
                 block->valid = 1;
+                return;
             }
         }
         //If current line is not the tag
         else {
             //If directly mapped cache
             if(c->associativity == 1){
-                //If modyifying or setting, misses, evicts line, replaces and hits
+                //If modyifying
                 if(type == 'M'){
                     misses++;
                     evictions++;
+                    hits++;
                     //memcpy(block->data, &type, size);
                     block->tag = tag;
                     block->valid = 1;
                     //hits++;
-                   printf("miss evict");
-
-                } /*else if(type == 'S'){
+                   //printf("miss evict hit\n");
+                    return;
+                }
+                //If setting
+                else if(type == 'S'){
                     misses++;
-                    //evictions++;
-                    //memcpy(block->data, &type, size);
+                    if(block->valid == 1){
+                        evictions++;
+                        //printf("valid bit\n");
+                       //printf("miss evict\n");
+                    } else {
+                       //printf("miss\n");
+                    }
                     block->tag = tag;
                     block->valid = 1;
-                    //hits++;
-                    printf("miss");
-                }*/
-                //If loading, misses and evicts 
+                    return;
+                }
+                //If loading 
                 else {
                     misses++;
                     evictions++;
                     //memcpy(block->data, &type, size);
                     block->tag = tag;
                     block->valid = 1;
-                   printf("miss evict");
+                   //printf("miss evict\n");
+                    return;
+
                 }
             }
             //If not directly mapped, checks we've reached the end of lines, if so, misses, evicts LRU and replaces
@@ -323,9 +334,7 @@ int main(int argc, char **argv){
         
     }
     fclose(fptr);
-    
    //printf("\n");
-
     printSummary(hits, misses, evictions);
     return 0;
 }
